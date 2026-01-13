@@ -55,6 +55,11 @@ const bottomNavItems = [
     path: '/app/company', 
     icon: Building2,
   },
+  { 
+    label: 'Settings', 
+    path: '/app/settings', 
+    icon: Settings,
+  },
 ];
 
 export function DashboardNav() {
