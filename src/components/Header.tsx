@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, ArrowRight } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -15,7 +17,11 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const navLinks = ["How it works", "Features", "Pricing"];
+  const navLinks = [
+    { label: "How it works", href: "/how-it-works" },
+    { label: "Features", href: "/#features" },
+    { label: "Pricing", href: "/#pricing" },
+  ];
 
   return (
     <header
@@ -27,25 +33,29 @@ const Header = () => {
     >
       <div className="container-wide flex items-center justify-between">
         {/* Logo */}
-        <a href="/" className="flex items-center gap-3 group">
+        <Link to="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10 rounded-xl bg-foreground flex items-center justify-center group-hover:scale-105 transition-transform">
             <span className="text-lg font-serif font-semibold text-background">S</span>
           </div>
           <span className="font-serif text-xl font-medium text-foreground hidden sm:block">
             StartupAI
           </span>
-        </a>
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
-            <a
-              key={link}
-              href="#"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            <Link
+              key={link.href}
+              to={link.href}
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === link.href
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              {link}
-            </a>
+              {link.label}
+            </Link>
           ))}
         </nav>
 
@@ -85,14 +95,18 @@ const Header = () => {
           >
             <div className="container-wide py-6 space-y-4">
               {navLinks.map((link) => (
-                <a
-                  key={link}
-                  href="#"
-                  className="block py-2 text-lg font-medium text-foreground"
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className={`block py-2 text-lg font-medium ${
+                    location.pathname === link.href
+                      ? "text-foreground"
+                      : "text-foreground"
+                  }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  {link}
-                </a>
+                  {link.label}
+                </Link>
               ))}
               <div className="pt-4 border-t border-border space-y-3">
                 <a
