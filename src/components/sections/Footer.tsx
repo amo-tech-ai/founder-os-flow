@@ -1,36 +1,196 @@
+import { Link } from "react-router-dom";
 import { MotionWrapper } from "@/components/ui/motion-wrapper";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
+const footerLinks = {
+  product: {
+    title: "Product",
+    links: [
+      { label: "Home", href: "/" },
+      { label: "Features", href: "/features" },
+      { label: "How It Works", href: "/how-it-works" },
+      { label: "Perks", href: "/perks" },
+      { label: "Pricing", href: "/pricing" },
+    ],
+  },
+  aiFlows: {
+    title: "AI Flows",
+    links: [
+      { label: "Profile Flow", href: "/flows/profile" },
+      { label: "Startup Flow", href: "/flows/startup" },
+      { label: "Event Flow", href: "/flows/event" },
+      { label: "Job Flow", href: "/flows/job" },
+    ],
+  },
+  fundraising: {
+    title: "Fundraising",
+    links: [
+      { label: "Fundraising", href: "/fundraising" },
+      { label: "Pitch Deck", href: "/fundraising/pitch-deck" },
+      { label: "Investor CRM", href: "/fundraising/investor-crm" },
+      { label: "Accelerators", href: "/fundraising/accelerators" },
+      { label: "Sponsors", href: "/fundraising/sponsors" },
+    ],
+  },
+  dashboard: {
+    title: "Dashboard",
+    links: [
+      { label: "Dashboard", href: "/app/dashboard" },
+      { label: "Tasks", href: "/app/tasks" },
+      { label: "Projects", href: "/app/projects" },
+      { label: "Contacts", href: "/app/contacts" },
+      { label: "Settings", href: "/app/settings" },
+    ],
+  },
+  company: {
+    title: "Company",
+    links: [
+      { label: "About", href: "/about" },
+      { label: "Blog", href: "/blog" },
+      { label: "Contact", href: "/contact" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
+    ],
+  },
+};
+
+const socialLinks = [
+  {
+    label: "X (Twitter)",
+    href: "https://x.com/startupai",
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    ),
+  },
+  {
+    label: "LinkedIn",
+    href: "https://linkedin.com/company/startupai",
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+      </svg>
+    ),
+  },
+  {
+    label: "GitHub",
+    href: "https://github.com/startupai",
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+];
+
+const FooterColumn = ({ title, links }: { title: string; links: { label: string; href: string }[] }) => (
+  <div className="space-y-4">
+    <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">{title}</h3>
+    <ul className="space-y-3">
+      {links.map((link) => (
+        <li key={link.href}>
+          <Link
+            to={link.href}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+          >
+            {link.label}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
 const Footer = () => {
+  const columns = Object.values(footerLinks);
+
   return (
-    <footer className="py-12 md:py-16 border-t border-border">
-      <div className="container-wide">
+    <footer className="border-t border-border bg-background">
+      <div className="container-wide py-16 md:py-20">
         <MotionWrapper>
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-foreground flex items-center justify-center">
-                <span className="text-lg font-serif font-semibold text-background">S</span>
-              </div>
-              <span className="font-serif text-xl font-medium text-foreground">StartupAI</span>
-            </div>
+          {/* Desktop: 5 columns */}
+          <div className="hidden md:grid md:grid-cols-5 gap-8 lg:gap-12">
+            {columns.map((column) => (
+              <FooterColumn key={column.title} title={column.title} links={column.links} />
+            ))}
+          </div>
 
-            {/* Links */}
-            <nav className="flex items-center gap-8">
-              {["About", "Features", "Pricing", "Blog"].map((link) => (
-                <a
-                  key={link}
-                  href="#"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {link}
-                </a>
+          {/* Mobile: Accordion */}
+          <div className="md:hidden">
+            <Accordion type="multiple" className="w-full">
+              {columns.map((column) => (
+                <AccordionItem key={column.title} value={column.title} className="border-border">
+                  <AccordionTrigger className="text-sm font-semibold text-foreground uppercase tracking-wider hover:no-underline py-4">
+                    {column.title}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="space-y-3 pb-4">
+                      {column.links.map((link) => (
+                        <li key={link.href}>
+                          <Link
+                            to={link.href}
+                            className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+                          >
+                            {link.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </nav>
+            </Accordion>
+          </div>
+        </MotionWrapper>
 
-            {/* Copyright */}
-            <p className="text-sm text-muted-foreground">
-              © 2026 StartupAI. All rights reserved.
-            </p>
+        {/* Bottom Bar */}
+        <MotionWrapper delay={0.1}>
+          <div className="mt-16 pt-8 border-t border-border">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              {/* Logo & Copyright */}
+              <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
+                <Link to="/" className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-foreground flex items-center justify-center">
+                    <span className="text-base font-serif font-semibold text-background">S</span>
+                  </div>
+                  <span className="font-serif text-lg font-medium text-foreground">StartupAI</span>
+                </Link>
+                <span className="hidden md:block text-muted-foreground">·</span>
+                <p className="text-sm text-muted-foreground">
+                  © 2026 StartupAI. All rights reserved.
+                </p>
+              </div>
+
+              {/* Contact & Social */}
+              <div className="flex items-center gap-6">
+                <a
+                  href="mailto:hello@startupai.me"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+                >
+                  hello@startupai.me
+                </a>
+                <div className="flex items-center gap-4">
+                  {socialLinks.map((social) => (
+                    <a
+                      key={social.label}
+                      href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground transition-colors duration-200"
+                      aria-label={social.label}
+                    >
+                      {social.icon}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </MotionWrapper>
       </div>
