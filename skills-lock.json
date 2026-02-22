@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "wireframe-prototyping": {
+      "source": "aj-geddes/useful-ai-prompts",
+      "sourceType": "github",
+      "computedHash": "3293296c0ef487f57c11da01ac27d53146ff5d126b9838593ce91eed76e055ac"
+    }
+  }
+}
