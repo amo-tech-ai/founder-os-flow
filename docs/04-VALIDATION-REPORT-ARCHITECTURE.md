@@ -98,7 +98,7 @@ Each of the 9 detail pages follows this BCG-inspired structure:
 - **Bold headline** framing the core tension for this topic
 - Example (Revenue): "You're targeting enterprise contracts — but your pricing model assumes self-serve. That's a $2M disconnect."
 - **Score badge**: 42/100 with color
-- **Archetype indicator**: "Exploring" / "Validating" / "Validated"
+- **Archetype indicator**: "Exploring" / "Validating" / "Scaling"
 - **Trend arrow**: ↑12 since last assessment (if available)
 
 ### Section 2: Visual Flow Diagram

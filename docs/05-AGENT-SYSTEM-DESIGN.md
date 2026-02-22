@@ -1,6 +1,6 @@
 # PART 3 — Agent System Design
 
-> Architecture for StartupAI's AI agent ecosystem
+> Architecture for StartupAI's 11-agent AI ecosystem
 > Designed for iterative delivery: Core → MVP → Post-MVP → Advanced → Production
 
 ---
@@ -42,6 +42,44 @@
 
 ## B. Core Agents (MVP)
 
+### Agent 0: Chat Orchestrator
+
+**Purpose:** Routes user messages to the appropriate agent based on intent classification
+
+**Inputs:**
+- User chat message
+- Current conversation context
+- Active page/entity context
+
+**Outputs:**
+- Agent selection decision
+- Routing metadata
+- Direct response (for general chat)
+
+**When Triggered:**
+- Every incoming chat message
+
+**How It Routes:**
+- "general_chat" → Respond directly with startup knowledge
+- "profile_update" → Route to Profile Extractor
+- "canvas_question" → Route to Canvas Builder
+- "market_question" → Route to Market Research
+- "competitor_question" → Route to Competition Analyzer
+- "revenue_question" → Route to Revenue Simulator
+- "risk_question" → Route to Risk Analyzer
+- "planning_question" → Route to Strategic Planner
+- "task_request" → Route to Task Generator
+- "score_request" → Route to Validation Scorer
+
+**How It Updates Dashboard:**
+- Conversation logged to `chat_messages`
+- Agent runs tracked in `agent_runs`
+
+**Human Approval Gate:**
+- None for routing itself — agents downstream handle their own approval gates
+
+---
+
 ### Agent 1: Profile Extractor
 
 **Purpose:** Extracts structured startup profile data from natural conversation
@@ -74,7 +112,7 @@
 
 ---
 
-### Agent 2: Lean Canvas Builder
+### Agent 2: Canvas Builder
 
 **Purpose:** Generates a complete 9-block Lean Canvas from profile data
 
@@ -349,7 +387,7 @@
 
 ---
 
-### Agent 9: Strategic Planning Agent (Premium)
+### Agent 9: Strategic Planner (Premium)
 
 **Purpose:** Creates comprehensive strategic roadmap combining all validation insights with startup best practices
 
@@ -391,6 +429,46 @@
 
 ---
 
+### Agent 10: Report Generator
+
+**Purpose:** Creates BCG-style detail reports for each validation topic
+
+**Inputs:**
+- Validation topic and score
+- Lean Canvas (current version)
+- Startup profile data
+- Vector DB context (benchmarks, templates, patterns)
+
+**Outputs:**
+- Tension headline (BCG-style opening)
+- Flow diagram data (topic-specific visualization)
+- Score breakdown with sub-scores
+- Executive analysis (3–5 paragraphs)
+- Evidence assessment (strong/weak/missing)
+- Gap analysis (ambition vs evidence)
+- Benchmark comparisons
+- Priority actions (3–5 ranked)
+- Related topics
+
+**When Triggered:**
+- When a detail report page is visited for the first time
+- When user requests report regeneration
+- After validation scores change significantly
+
+**How It Updates Canvas:**
+- Does NOT update canvas directly
+- Priority actions can be added as tasks
+
+**How It Updates Dashboard:**
+- Detail reports available from validation cards
+- Priority actions feed into task suggestions
+
+**Human Approval Gate:**
+- Report is read-only output — no database writes requiring approval
+- Priority actions require user confirmation to add as tasks
+
+---
+
 ## D. Currently Available Skills & Agents
 
 ### Installed Skills (from `.agents/`)
@@ -409,7 +487,7 @@ Additional skills can be installed from https://skills.sh for specific tasks. Ea
 ```
 Chat Message → Profile Extractor → [User Confirms]
                                          ↓
-                                  Lean Canvas Builder → [User Edits]
+                                  Canvas Builder → [User Edits]
                                          ↓
                                   Validation Scorer → Dashboard Updated
                                          ↓
@@ -442,7 +520,7 @@ User edits Revenue block → recalc_scores_on_change
 
 ### Chain 4: Strategic Review (Scheduled/Manual)
 ```
-Weekly Cron → Strategic Planning Agent
+Weekly Cron → Strategic Planner
                     ↓
               Queries Vector DB for best practices
                     ↓

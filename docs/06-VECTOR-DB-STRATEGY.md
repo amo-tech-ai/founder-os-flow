@@ -1,13 +1,13 @@
 # PART 6 — Vector Database Strategy
 
-> Knowledge base architecture for the Strategic Planning Agent
+> Knowledge base architecture for the Strategic Planner agent
 > Powers BCG-grade startup advice with retrieval-augmented generation (RAG)
 
 ---
 
 ## A. Why a Vector Database
 
-The Strategic Planning Agent needs to give advice that's better than generic ChatGPT output. That requires domain-specific knowledge about:
+The Strategic Planner agent needs to give advice that's better than generic ChatGPT output. That requires domain-specific knowledge about:
 
 - What makes AI startups succeed or fail
 - Validation frameworks that actually work
@@ -54,7 +54,7 @@ A vector database stores this knowledge as embeddings and retrieves the most rel
 | Competition response patterns | Differentiation, positioning, moat building | ~15 chunks |
 | Risk mitigation patterns | Technical, market, regulatory, team risks | ~20 chunks |
 
-**Total estimated chunks: ~630**
+**Total estimated chunks: ~634**
 
 ---
 
@@ -89,7 +89,7 @@ CREATE INDEX ON knowledge_base
 - Zero additional infrastructure cost
 - Same RLS policies as rest of database
 - Single transaction with other Supabase queries
-- ~630 chunks is tiny — pgvector handles millions
+- ~634 chunks is tiny — pgvector handles millions
 - Edge functions can query directly via Supabase client
 
 ### Embedding Generation
@@ -98,7 +98,7 @@ Content chunk → OpenAI text-embedding-3-small → 1536-dim vector → Store in
 ```
 
 **Cost estimate:**
-- 630 chunks × ~200 tokens each = ~126,000 tokens
+- 634 chunks × ~200 tokens each = ~126,800 tokens
 - text-embedding-3-small: $0.02 per 1M tokens
 - One-time cost: ~$0.003 (essentially free)
 - Per-query cost: ~$0.00002 per search
@@ -208,7 +208,7 @@ $$;
 | Agent | Query Pattern | Category Filter | Purpose |
 |-------|--------------|-----------------|---------|
 | Profile Extractor | "AI startup in [industry]" | pattern | Get industry-specific extraction prompts |
-| Lean Canvas Builder | "[block] best practices for [industry]" | framework | Generate informed canvas content |
+| Canvas Builder | "[block] best practices for [industry]" | framework | Generate informed canvas content |
 | Validation Scorer | "scoring rubric for [topic]" | template | Apply consistent scoring criteria |
 | Task Generator | "experiments for [validation gap]" | pattern | Suggest evidence-gathering tasks |
 | Market Research | "[industry] market benchmarks" | benchmark | Contextualize market findings |
@@ -216,6 +216,7 @@ $$;
 | Revenue Simulator | "[model type] unit economics benchmarks" | benchmark | Calibrate projections |
 | Risk Analyzer | "common risks for [stage] AI startups" | pattern | Comprehensive risk identification |
 | Strategic Planner | "milestone frameworks for [stage]" | framework | Build phase-gated roadmaps |
+| Report Generator | "report template for [topic] validation" | template | BCG-style detail report context |
 
 ---
 

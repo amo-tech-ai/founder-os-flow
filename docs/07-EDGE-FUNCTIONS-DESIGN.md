@@ -2,103 +2,129 @@
 
 > All serverless functions needed for StartupAI
 > Supabase Edge Functions (Deno runtime)
+> **Architecture decision: Single "fat function" with Hono router** (see EDGE-FUNCTIONS-best-practices.md)
 
 ---
 
-## A. Function Inventory
+## A. Function Architecture
 
-### Core (Ship First)
-| Function | Method | Purpose | Auth Required |
-|----------|--------|---------|---------------|
-| `chat` | POST | Main chat orchestrator — routes to agents | Yes |
-| `dashboard-summary` | GET | Aggregated dashboard data | Yes |
-| `ai-insights` | POST | Context-aware AI insights for right panel | Yes |
+### Decision: Fat Function with Hono Router
 
-### MVP
-| Function | Method | Purpose | Auth Required |
-|----------|--------|---------|---------------|
-| `profile-extract` | POST | Extract structured profile from chat text | Yes |
-| `canvas-generate` | POST | Generate lean canvas from profile data | Yes |
-| `validation-score` | POST | Score validation topics | Yes |
-| `task-generate` | POST | Generate tasks from validation gaps | Yes |
+All agent endpoints are served by a **single edge function** (`ai-agents`) using a Hono router. This avoids 15+ separate Deno isolates and cold starts.
 
-### Post-MVP
-| Function | Method | Purpose | Auth Required |
-|----------|--------|---------|---------------|
-| `market-research` | POST | Research market data for a startup | Yes |
-| `competition-analyze` | POST | Analyze competitive landscape | Yes |
-| `revenue-simulate` | POST | Model revenue scenarios | Yes |
-| `risk-analyze` | POST | Assess startup risks | Yes |
-| `vector-search` | POST | Query knowledge base | Yes |
-| `vector-ingest` | POST | Add content to knowledge base | Yes (Admin) |
+**URL pattern:** `POST /functions/v1/ai-agents/{route}`
 
-### Advanced
-| Function | Method | Purpose | Auth Required |
-|----------|--------|---------|---------------|
-| `strategic-plan` | POST | Generate strategic roadmap | Yes |
-| `report-generate` | POST | Generate BCG-style detail report | Yes |
-| `export-pdf` | POST | Export reports as PDF | Yes |
+### Route Inventory
+
+#### Core (Ship First)
+| Route | Method | Purpose | Auth Required |
+|-------|--------|---------|---------------|
+| `/chat` | POST | Main chat orchestrator — routes to agents | Yes |
+| `/chat/stream` | POST | Streaming chat via SSE | Yes |
+| `/dashboard-summary` | POST | Aggregated dashboard data | Yes |
+| `/ai-insights` | POST | Context-aware AI insights for right panel | Yes |
+
+#### MVP
+| Route | Method | Purpose | Auth Required |
+|-------|--------|---------|---------------|
+| `/extract-profile` | POST | Extract structured profile from chat text | Yes |
+| `/build-canvas` | POST | Generate lean canvas from profile data | Yes |
+| `/score-validation` | POST | Score validation topics | Yes |
+| `/generate-tasks` | POST | Generate tasks from validation gaps | Yes |
+
+#### Post-MVP
+| Route | Method | Purpose | Auth Required |
+|-------|--------|---------|---------------|
+| `/research-market` | POST | Research market data for a startup | Yes |
+| `/analyze-competition` | POST | Analyze competitive landscape | Yes |
+| `/simulate-revenue` | POST | Model revenue scenarios | Yes |
+| `/analyze-risks` | POST | Assess startup risks | Yes |
+| `/vector-search` | POST | Query knowledge base | Yes |
+| `/vector-ingest` | POST | Add content to knowledge base | Yes (Admin) |
+
+#### Advanced
+| Route | Method | Purpose | Auth Required |
+|-------|--------|---------|---------------|
+| `/strategic-plan` | POST | Generate strategic roadmap | Yes |
+| `/generate-report` | POST | Generate BCG-style detail report | Yes |
+| `/export-pdf` | POST | Export reports as PDF | Yes |
 
 ---
 
 ## B. Shared Utilities
 
-### `_shared/cors.ts`
-```typescript
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-```
-
-### `_shared/auth.ts`
-```typescript
-import { createClient } from '@supabase/supabase-js';
-
-export async function getAuthUser(req: Request) {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) throw new Error('Missing authorization header');
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) throw new Error('Unauthorized');
-
-  return { user, supabase };
+### `import_map.json`
+```json
+{
+  "imports": {
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.39.0",
+    "hono": "npm:hono@4.7.0",
+    "hono/": "npm:hono@4.7.0/",
+    "jose": "npm:jose@5.9.0",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.49.0"
+  }
 }
 ```
 
-### `_shared/claude.ts`
+### `_shared/cors.ts`
 ```typescript
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
+};
+```
+> **Note:** Set `ALLOWED_ORIGIN` to your frontend domain in production. Never ship `*` to production.
+
+### `_shared/auth.ts`
+```typescript
+import { jwtVerify } from "jose"
+
+export async function verifyAuth(req: Request): Promise<{ userId: string } | null> {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader) return null
+
+  const token = authHeader.replace('Bearer ', '')
+
+  try {
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode(Deno.env.get('JWT_SECRET')!)
+    )
+    return { userId: payload.sub as string }
+  } catch {
+    return null
+  }
+}
+```
+> **Decision:** Local JWT verification via `jose` — no network call needed. `JWT_SECRET` is auto-injected by Supabase.
+
+### `_shared/claude-client.ts`
+```typescript
+import Anthropic from "@anthropic-ai/sdk"
+
+// Module-level initialization (runs once on cold start, reused across requests)
+export const anthropic = new Anthropic({
+  apiKey: Deno.env.get("ANTHROPIC_API_KEY")
+})
+
+export const CLAUDE_MODEL = "claude-sonnet-4-20250514"
+export const DEFAULT_MAX_TOKENS = 2048
+export const REPORT_MAX_TOKENS = 4096
+
 export async function callClaude(params: {
   system: string;
   messages: Array<{ role: string; content: string }>;
   max_tokens?: number;
 }) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: params.max_tokens || 2048,
-      system: params.system,
-      messages: params.messages,
-    }),
-  });
+  const response = await anthropic.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: params.max_tokens || DEFAULT_MAX_TOKENS,
+    system: params.system,
+    messages: params.messages,
+  })
 
-  if (!response.ok) {
-    throw new Error(`Claude API error: ${response.status}`);
-  }
-
-  return await response.json();
+  return response
 }
 ```
 
@@ -122,16 +148,42 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 }
 ```
 
+### `_shared/error-handler.ts`
+```typescript
+import { corsHeaders } from "./cors.ts"
+
+export interface ErrorResponse {
+  success: false
+  error: string
+  code: string
+  details?: unknown
+}
+
+export function handleError(error: unknown): Response {
+  console.error('[Edge Function Error]', error)
+  const message = error instanceof Error ? error.message : 'Unknown error'
+  const body: ErrorResponse = {
+    success: false,
+    error: message,
+    code: 'INTERNAL_ERROR',
+  }
+  return new Response(JSON.stringify(body), {
+    status: 500,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+```
+
 ---
 
 ## C. Core Function Details
 
-### 1. `chat/index.ts` — Chat Orchestrator
+### 1. `/chat` — Chat Orchestrator
 
-The most important function. Routes messages to the right agent.
+The most important route. Routes messages to the right agent.
 
 ```typescript
-// POST /functions/v1/chat
+// POST /functions/v1/ai-agents/chat
 // Input:
 {
   message: string;           // User's chat message
@@ -180,10 +232,10 @@ Message → Classify intent:
   - "score_request" → Route to Validation Scorer
 ```
 
-### 2. `dashboard-summary/index.ts`
+### 2. `/dashboard-summary`
 
 ```typescript
-// GET /functions/v1/dashboard-summary
+// POST /functions/v1/ai-agents/dashboard-summary
 // Output:
 {
   kpis: {
@@ -218,10 +270,10 @@ Message → Classify intent:
 }
 ```
 
-### 3. `ai-insights/index.ts`
+### 3. `/ai-insights`
 
 ```typescript
-// POST /functions/v1/ai-insights
+// POST /functions/v1/ai-agents/ai-insights
 // Input:
 {
   context_type: 'dashboard' | 'canvas' | 'validation' | 'detail_report';
@@ -253,7 +305,7 @@ Message → Classify intent:
 
 ## D. Agent Function Details
 
-### `profile-extract/index.ts`
+### `/extract-profile`
 ```typescript
 // Input: { messages: ChatMessage[], existing_profile?: StartupProfile }
 // Output: { extracted_fields: Partial<StartupProfile>, confidence: Record<string, number>, follow_up_questions: string[] }
@@ -265,7 +317,7 @@ Message → Classify intent:
 // - Follow-up question generation
 ```
 
-### `canvas-generate/index.ts`
+### `/build-canvas`
 ```typescript
 // Input: { profile: StartupProfile, existing_canvas?: LeanCanvas }
 // Output: { blocks: Array<{ block_type: string, content: string, confidence: 'low'|'medium'|'high', needs_validation: boolean }> }
@@ -276,7 +328,7 @@ Message → Classify intent:
 // - Content quality rubric
 ```
 
-### `validation-score/index.ts`
+### `/score-validation`
 ```typescript
 // Input: { canvas: LeanCanvas, profile: StartupProfile, chat_history?: ChatMessage[], topic?: string }
 // Output: { scores: Array<{ topic: string, composite: number, sub_scores: Record<string, number>, verdict: string, evidence: string[], gap_analysis: { ambition: number, evidence: number } }> }
@@ -288,60 +340,95 @@ Message → Classify intent:
 // - Benchmark data
 ```
 
-### `task-generate/index.ts`
+### `/generate-tasks`
 ```typescript
 // Input: { scores: ValidationScore[], existing_tasks: Task[], startup_stage: string }
 // Output: { tasks: Array<{ title: string, description: string, topic: string, expected_impact: number, effort: 'low'|'medium'|'high', experiment_type: string }> }
 ```
 
-### `report-generate/index.ts`
+### `report-generate` (route: `/generate-report`)
 ```typescript
 // Input: { topic: string, score: ValidationScore, canvas: LeanCanvas, profile: StartupProfile }
-// Output: { tension_headline: string, flow_diagram: FlowDiagramData, score_breakdown: ScoreBreakdown, analysis: string, evidence_assessment: EvidenceSection, gap_analysis: GapData, benchmarks: BenchmarkData, actions: ActionItem[], related_topics: string[] }
+// Output: { success: true, data: { tension_headline: string, flow_diagram: FlowDiagramData, score_breakdown: ScoreBreakdown, analysis: string, evidence_assessment: EvidenceSection, gap_analysis: GapData, benchmarks: BenchmarkData, actions: ActionItem[], related_topics: string[] } }
+// Note: Uses REPORT_MAX_TOKENS (4096) — detail reports need more output than standard 2048
 ```
 
 ---
 
-## E. Middleware Pattern
+## E. Fat Function Entry Point
 
-Every edge function follows this pattern:
+The single `ai-agents/index.ts` uses Hono for routing and middleware:
 
 ```typescript
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders } from '../_shared/cors.ts';
-import { getAuthUser } from '../_shared/auth.ts';
+import { Hono } from "hono"
+import { cors } from "hono/cors"
+import { verifyAuth } from "../_shared/auth.ts"
 
-serve(async (req: Request) => {
-  // 1. CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+const app = new Hono().basePath("/ai-agents")
 
-  try {
-    // 2. Auth
-    const { user, supabase } = await getAuthUser(req);
+// Global middleware
+app.use("*", cors())
+app.use("*", async (c, next) => {
+  if (c.req.method === 'OPTIONS') return next()
+  const auth = await verifyAuth(c.req.raw)
+  if (!auth) return c.json({ success: false, error: 'Unauthorized', code: 'AUTH_ERROR' }, 401)
+  c.set('userId', auth.userId)
+  await next()
+})
 
-    // 3. Rate limit check
-    // (implemented via Supabase table or KV)
+// Standardized response envelope
+// All routes return: { success: boolean, data?: T, error?: string, metadata?: object }
 
-    // 4. Parse input
-    const body = await req.json();
+// Core routes
+app.post("/chat", handleChat)
+app.post("/chat/stream", handleChatStream)
+app.post("/dashboard-summary", handleDashboardSummary)
+app.post("/ai-insights", handleAIInsights)
 
-    // 5. Business logic
-    const result = await handleRequest(body, user, supabase);
+// MVP routes
+app.post("/extract-profile", handleProfileExtraction)
+app.post("/build-canvas", handleCanvasBuild)
+app.post("/score-validation", handleValidationScoring)
+app.post("/generate-tasks", handleTaskGeneration)
 
-    // 6. Return response
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: error.status || 500,
-    });
-  }
-});
+// Post-MVP routes
+app.post("/research-market", handleMarketResearch)
+app.post("/analyze-competition", handleCompetitionAnalysis)
+app.post("/simulate-revenue", handleRevenueSimulation)
+app.post("/analyze-risks", handleRiskAnalysis)
+
+// Advanced routes
+app.post("/strategic-plan", handleStrategicPlanning)
+app.post("/generate-report", handleReportGeneration)
+app.post("/export-pdf", handleExportPDF)
+
+// Health check (for keep-warm)
+app.get("/health", (c) => c.json({ status: "ok" }))
+
+// Error handler
+app.onError((err, c) => {
+  console.error('[Edge Function Error]', err)
+  return c.json({ success: false, error: err.message, code: 'INTERNAL_ERROR' }, 500)
+})
+
+Deno.serve(app.fetch)
+```
+
+### Standardized Response Envelope
+
+All routes return this shape:
+```typescript
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  code?: string;       // Error code for client-side handling
+  metadata?: {
+    agent?: string;    // Which agent handled this
+    tokens_used?: number;
+    duration_ms?: number;
+  };
+}
 ```
 
 ---
@@ -383,32 +470,37 @@ TAVILY_API_KEY=              # Alternative web search
 
 ## H. Deployment Order
 
+All routes are part of the single `ai-agents` fat function. Phases indicate when each route handler and shared utility is implemented.
+
 ```
 Phase 1 (Core):
+  import_map.json
   _shared/cors.ts
   _shared/auth.ts
-  _shared/claude.ts
-  chat/index.ts
-  dashboard-summary/index.ts
-  ai-insights/index.ts
+  _shared/claude-client.ts
+  _shared/error-handler.ts
+  _shared/embeddings.ts          ← Needed by Phase 2+ agents
+  ai-agents/index.ts             ← Hono router with Core routes
+    routes: /chat, /chat/stream, /dashboard-summary, /ai-insights
 
 Phase 2 (MVP):
-  profile-extract/index.ts
-  canvas-generate/index.ts
-  validation-score/index.ts
-  task-generate/index.ts
+  ai-agents/index.ts             ← Add MVP routes
+    routes: /extract-profile, /build-canvas, /score-validation, /generate-tasks
 
 Phase 3 (Post-MVP):
-  _shared/embeddings.ts
-  vector-search/index.ts
-  vector-ingest/index.ts
-  market-research/index.ts
-  competition-analyze/index.ts
+  ai-agents/index.ts             ← Add Post-MVP routes
+    routes: /research-market, /analyze-competition, /simulate-revenue,
+            /analyze-risks, /vector-search, /vector-ingest
 
 Phase 4 (Advanced):
-  revenue-simulate/index.ts
-  risk-analyze/index.ts
-  strategic-plan/index.ts
-  report-generate/index.ts
-  export-pdf/index.ts
+  ai-agents/index.ts             ← Add Advanced routes
+    routes: /strategic-plan, /generate-report, /export-pdf
 ```
+
+### Heavy Agent Pattern
+
+For agents exceeding 30s (market-research, strategic-plan), use `EdgeRuntime.waitUntil()` with the `agent_jobs` table (see Doc 08):
+1. Insert `agent_jobs` row (status: `pending`)
+2. Return `{ jobId, status: 'queued' }` immediately
+3. Process in background via `EdgeRuntime.waitUntil()`
+4. Frontend subscribes to `agent_jobs` changes via Supabase Realtime

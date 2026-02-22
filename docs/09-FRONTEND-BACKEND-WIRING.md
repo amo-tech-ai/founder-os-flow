@@ -343,5 +343,5 @@ queryClient.invalidateQueries(['chat', 'messages', conversationId]);
 5. **Offline behavior** — Show cached data when edge functions down?
 
 ### Before Post-MVP
-6. **Vector DB seeding** — Who curates the initial 630 chunks?
+6. **Vector DB seeding** — Who curates the initial 634 chunks?
 7. **Report export** — HTML first, PDF later?

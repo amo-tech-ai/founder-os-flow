@@ -2,7 +2,9 @@
 
 ## Key Findings vs Our Current Plan
 
-Our plan in `PLAN-startup-copilot.md` proposed individual edge functions per agent. Based on current best practices, here are the improvements we should make.
+> **Status: ADOPTED.** The fat function architecture described here has been adopted as the canonical approach in `07-EDGE-FUNCTIONS-DESIGN.md`. Both docs are now aligned.
+
+Our plan originally proposed individual edge functions per agent. Based on current best practices, we adopted the improvements below.
 
 ---
 
@@ -165,8 +167,9 @@ For agents that take >30 seconds (market research, strategic planning), use a ta
 ```sql
 CREATE TABLE agent_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
   startup_id UUID REFERENCES startups(id),
-  user_id UUID REFERENCES auth.users(id),
+  user_id UUID REFERENCES profiles(id),
   agent_type TEXT NOT NULL,        -- 'market_research', 'strategic_planner', etc.
   input_payload JSONB NOT NULL,
   output_payload JSONB,
@@ -260,11 +263,13 @@ app.use("*", async (c, next) => {
 ```ts
 // _shared/cors.ts
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 }
 ```
+
+> **Security:** Set `ALLOWED_ORIGIN` to your frontend domain in production (`supabase secrets set ALLOWED_ORIGIN=https://your-app.com`). Never ship `*` to production.
 
 **Critical**: Include CORS headers in ALL responses (success AND error). Handle OPTIONS preflight as the first check in every function.
 

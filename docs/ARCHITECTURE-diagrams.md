@@ -26,7 +26,7 @@ flowchart TD
     L -->|Reject / Edit| G
     L -->|Approve| M[Generate Lean Canvas]
 
-    M --> N[Lean Canvas Builder Agent]
+    M --> N[Canvas Builder Agent]
     N --> O[Display 9-Block Canvas]
     O --> P[User Reviews & Edits Blocks]
 
@@ -143,7 +143,7 @@ flowchart TB
 
         subgraph Agents["Agent Logic"]
             PE[Profile Extractor]
-            LCB[Lean Canvas Builder]
+            LCB[Canvas Builder]
             VS[Validation Scorer]
             TG[Task Generator]
             RG[Report Generator]
@@ -792,7 +792,7 @@ gantt
 
     section Phase C: Canvas
     CanvasGrid + CanvasBlock UI    :c1, after b3, 4d
-    Lean Canvas Builder agent      :c2, after b3, 3d
+    Canvas Builder agent            :c2, after b3, 3d
     Canvas CRUD + auto-save        :c3, after c1, 2d
 
     section Phase D: Validation

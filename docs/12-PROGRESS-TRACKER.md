@@ -86,7 +86,7 @@
 | A5 | Canvas version diff | — | CanvasDiff.tsx | — | 🔲 TODO |
 | A6 | Score trend lines | — | ScoreTrend.tsx | — | 🔲 TODO |
 | A7 | Multi-agent chains in chat | Chat Orchestrator | ChatPanel.tsx | — | 🔲 TODO |
-| A8 | Knowledge base full seed (630) | — | — (data) | — | 🔲 TODO |
+| A8 | Knowledge base full seed (634) | — | — (data) | — | 🔲 TODO |
 | A9 | Revenue-simulate edge function | Revenue Simulator | — (backend) | — | 🔲 TODO |
 | A10 | Risk-analyze edge function | Risk Analyzer | — (backend) | — | 🔲 TODO |
 | A11 | Strategic-plan edge function | Strategic Planner | — (backend) | — | 🔲 TODO |
@@ -118,14 +118,14 @@
 |---|-------|-------|---------------|-------------|---------|
 | 1 | **Chat Orchestrator** | Core | `chat` | Every chat message | Routes to other agents |
 | 2 | **Profile Extractor** | Core | `chat` (sub-agent) | First chat / profile updates | `startups` table |
-| 3 | **Canvas Builder** | MVP | `canvas-generate` | Profile complete / user request | `lean_canvas_*` tables |
-| 4 | **Validation Scorer** | MVP | `validation-score` | Canvas accepted / re-score | `validation_*` tables |
-| 5 | **Task Generator** | MVP | `task-generate` | Scoring complete / user request | `tasks` table |
-| 6 | **Report Generator** | Post-MVP | `report-generate` | Detail page visited / user request | `detail_reports` table |
-| 7 | **Market Research** | Post-MVP | `market-research` | User request via agent picker | Chat response + canvas suggestions |
-| 8 | **Competition Analyzer** | Post-MVP | `competition-analyze` | User request via agent picker | Chat response + canvas suggestions |
-| 9 | **Revenue Simulator** | Advanced | `revenue-simulate` | User request / revenue changes | Revenue projections |
-| 10 | **Risk Analyzer** | Advanced | `risk-analyze` | User request / score drops | Risk register |
+| 3 | **Canvas Builder** | MVP | `build-canvas` | Profile complete / user request | `lean_canvas_*` tables |
+| 4 | **Validation Scorer** | MVP | `score-validation` | Canvas accepted / re-score | `validation_*` tables |
+| 5 | **Task Generator** | MVP | `generate-tasks` | Scoring complete / user request | `tasks` table |
+| 6 | **Report Generator** | Post-MVP | `generate-report` | Detail page visited / user request | `detail_reports` table |
+| 7 | **Market Research** | Post-MVP | `research-market` | User request via agent picker | Chat response + canvas suggestions |
+| 8 | **Competition Analyzer** | Post-MVP | `analyze-competition` | User request via agent picker | Chat response + canvas suggestions |
+| 9 | **Revenue Simulator** | Advanced | `simulate-revenue` | User request / revenue changes | Revenue projections |
+| 10 | **Risk Analyzer** | Advanced | `analyze-risks` | User request / score drops | Risk register |
 | 11 | **Strategic Planner** | Advanced | `strategic-plan` | All topics scored / user request | Roadmap + milestones |
 
 ---
@@ -148,7 +148,7 @@
 | 12 | `/app/validation/traction` | DetailReport.tsx | Post-MVP | report-generate |
 | 13 | `/app/validation/risk` | DetailReport.tsx | Post-MVP | report-generate |
 | 14 | `/app/tasks` | Tasks.tsx | MVP (upgrade) | task-generate |
-| 15 | `/app/projects` | Projects.tsx | Existing | — |
+| ~~15~~ | ~~`/app/projects`~~ | ~~Projects.tsx~~ | ~~Existing~~ | **NOTE: `projects` table does not exist in DB. Route exists but has no backing table.** |
 | 16 | `/app/contacts` | Contacts.tsx | Existing | — |
 | 17 | `/app/deals` | Deals.tsx | Existing | — |
 | 18 | `/app/profile` | Profile.tsx | Existing | — |

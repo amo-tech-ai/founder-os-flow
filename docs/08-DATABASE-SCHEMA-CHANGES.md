@@ -7,7 +7,7 @@
 
 ## A. Current Schema Analysis
 
-The Supabase project (`ouverjherohazwadfgud`) has 46 tables auto-typed in `src/integrations/supabase/types.ts`.
+The Supabase project (`ouverjherohazwadfgud`) has **50 tables** (plus 3 views) auto-typed in `src/integrations/supabase/types.ts`.
 
 ### Tables That Exist and Are Usable As-Is
 | Table | What It Stores | Ready? |
@@ -17,8 +17,11 @@ The Supabase project (`ouverjherohazwadfgud`) has 46 tables auto-typed in `src/i
 | `org_members` | Org membership with roles | Yes |
 | `startups` | Startup entities (name, industry, stage, description) | Yes |
 | `startup_founders` | Founder profiles linked to startups | Yes |
+| `startup_competitors` | Competitor tracking per startup | Yes |
+| `startup_links` | External links per startup | Yes |
+| `startup_metrics_snapshots` | Historical metrics data | Yes |
+| `market_sizing_results` | Market sizing calculations | Yes |
 | `tasks` | Task items (title, status, priority, phase, category) | Yes |
-| `projects` | Project groupings | Yes |
 | `crm_contacts` | Contact records | Yes |
 | `crm_deals` | Deal pipeline | Yes |
 | `crm_tasks` | CRM-specific tasks | Yes |
@@ -29,10 +32,10 @@ The Supabase project (`ouverjherohazwadfgud`) has 46 tables auto-typed in `src/i
 ### Tables That Exist But Need Modification
 | Table | What Needs to Change | Why |
 |-------|---------------------|-----|
-| `ai_coach_insights` | Add `topic` column, add `score` column | Link insights to validation topics |
-| `ai_runs` | Add `agent_type` column, add `input_hash` for dedup | Track which agent produced what |
+| `ai_coach_insights` | Add `validation_topic` column, add `score` column, add `agent_type` column | Link insights to validation topics |
+| `ai_runs` | Add `agent_type`, `input_hash`, `input_data` (JSONB), `output_data` (JSONB), `startup_id`, `org_id`, `triggered_by`, `completed_at`, `error_message` columns | Extend to track agent runs (replaces proposed `agent_runs` table) |
 | `proposed_actions` | Add `validation_topic` column | Link actions to specific validation areas |
-| `startups` | Add structured profile fields (target_customer, problem_statement, solution_description, business_model, traction_summary) | Profile extraction needs structured storage |
+| `startups` | Add `funding_stage`, `profile_completeness` columns. **Use existing columns** for profile extraction: `target_customers` (array), `problem` (TEXT), `solution` (TEXT), `business_model` (array), `traction_data` (JSON), `unique_value` (TEXT), `pricing_model` (TEXT), `team_size` (INT). Do NOT duplicate these. | Profile extraction uses existing structured storage |
 
 ### Tables That Need to Be Created
 These are the new tables required for the chat → canvas → validation → reports flow.
@@ -210,52 +213,88 @@ CREATE INDEX idx_kb_embedding ON knowledge_base
   WITH (m = 16, ef_construction = 64);
 ```
 
-### 9. `agent_runs`
+### 9. `agent_jobs` (Background Job Queue)
+
+For heavy agents (market-research, strategic-plan) that exceed 30s, use a job queue pattern with Supabase Realtime.
+
 ```sql
-CREATE TABLE agent_runs (
+CREATE TABLE agent_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES profiles(id),
   startup_id UUID REFERENCES startups(id),
-  agent_type TEXT NOT NULL,                   -- 'profile_extractor' | 'canvas_builder' | etc.
+  agent_type TEXT NOT NULL,                   -- 'market_research' | 'strategic_planner' | etc.
   status TEXT DEFAULT 'pending'
-    CHECK (status IN ('pending', 'running', 'completed', 'failed')),
-  input_data JSONB DEFAULT '{}',
-  output_data JSONB DEFAULT '{}',
+    CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  input_payload JSONB NOT NULL DEFAULT '{}',
+  output_payload JSONB,
   error_message TEXT,
-  tokens_used INT DEFAULT 0,
-  duration_ms INT DEFAULT 0,
-  triggered_by TEXT DEFAULT 'user'            -- 'user' | 'system' | 'agent'
-    CHECK (triggered_by IN ('user', 'system', 'agent')),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  completed_at TIMESTAMPTZ
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_agent_runs_org ON agent_runs(org_id);
-CREATE INDEX idx_agent_runs_type ON agent_runs(agent_type);
+CREATE INDEX idx_agent_jobs_org ON agent_jobs(org_id);
+CREATE INDEX idx_agent_jobs_status ON agent_jobs(status);
+
+-- Enable realtime for frontend subscriptions
+ALTER PUBLICATION supabase_realtime ADD TABLE agent_jobs;
 ```
+
+> **Note:** Short-lived agents (chat, profile-extract, validation-score) use the extended `ai_runs` table directly. Only heavy agents use the `agent_jobs` queue pattern with `EdgeRuntime.waitUntil()`.
 
 ---
 
 ## C. Table Modifications to Existing Schema
 
 ### Modify `startups`
+
+> **Important:** The `startups` table already has these columns for profile data:
+> `target_customers` (TEXT[]), `problem` (TEXT), `solution` (TEXT), `business_model` (TEXT[]),
+> `traction_data` (JSON), `unique_value` (TEXT), `pricing_model` (TEXT), `team_size` (INT),
+> `profile_strength` (NUMERIC). Do NOT create duplicate columns.
+
+Only add genuinely new columns:
 ```sql
-ALTER TABLE startups ADD COLUMN IF NOT EXISTS target_customer TEXT;
-ALTER TABLE startups ADD COLUMN IF NOT EXISTS problem_statement TEXT;
-ALTER TABLE startups ADD COLUMN IF NOT EXISTS solution_description TEXT;
-ALTER TABLE startups ADD COLUMN IF NOT EXISTS business_model TEXT;
-ALTER TABLE startups ADD COLUMN IF NOT EXISTS traction_summary TEXT;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS funding_stage TEXT;
-ALTER TABLE startups ADD COLUMN IF NOT EXISTS team_size INT;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS profile_completeness NUMERIC(3,0) DEFAULT 0;
 ```
+
+The Profile Extractor agent should write to existing columns:
+- `target_customers` (not `target_customer`)
+- `problem` (not `problem_statement`)
+- `solution` (not `solution_description`)
+- `business_model` (existing array)
+- `traction_data` (not `traction_summary`)
+- `unique_value` (existing)
+- `pricing_model` (existing)
 
 ### Modify `ai_coach_insights`
 ```sql
 ALTER TABLE ai_coach_insights ADD COLUMN IF NOT EXISTS validation_topic TEXT;
 ALTER TABLE ai_coach_insights ADD COLUMN IF NOT EXISTS score NUMERIC(5,2);
 ALTER TABLE ai_coach_insights ADD COLUMN IF NOT EXISTS agent_type TEXT;
+```
+
+### Modify `ai_runs` (Extend for Agent Tracking)
+
+> **Decision:** Extend the existing `ai_runs` table instead of creating a separate `agent_runs` table. This avoids duplicate tracking.
+
+```sql
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS agent_type TEXT;
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS input_hash TEXT;
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS input_data JSONB DEFAULT '{}';
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS output_data JSONB DEFAULT '{}';
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS startup_id UUID REFERENCES startups(id);
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS org_id UUID REFERENCES orgs(id);
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS triggered_by TEXT DEFAULT 'user'
+  CHECK (triggered_by IN ('user', 'system', 'agent'));
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS error_message TEXT;
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS tokens_used INT DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_ai_runs_agent_type ON ai_runs(agent_type);
+CREATE INDEX IF NOT EXISTS idx_ai_runs_startup ON ai_runs(startup_id);
 ```
 
 ---
@@ -312,24 +351,25 @@ CREATE POLICY "Only service role can insert knowledge"
 Migration 1 (Core):
   - chat_conversations
   - chat_messages
-  - ALTER startups (add profile fields)
+  - ALTER startups (add funding_stage, profile_completeness only)
+  - ALTER ai_runs (extend for agent tracking)
 
 Migration 2 (MVP):
   - lean_canvas_versions
   - lean_canvas_blocks
   - validation_reports
   - validation_topic_scores
-  - agent_runs
+  - agent_jobs (background job queue)
 
 Migration 3 (Post-MVP):
   - detail_reports
   - knowledge_base (with pgvector extension)
   - ALTER ai_coach_insights
+  - match_knowledge RPC function
 
-Migration 4 (Advanced):
+Migration 4 (Production):
   - RLS policies for all new tables
   - Indexes optimization
-  - match_knowledge RPC function
 ```
 
 ---
@@ -347,7 +387,9 @@ startups ──┬── lean_canvas_versions ── lean_canvas_blocks
             │                                    │
             │                              detail_reports
             │
-            └── agent_runs
+            ├── ai_runs (extended for agent tracking)
+            │
+            └── agent_jobs (background job queue)
 
 knowledge_base (standalone, shared across all orgs)
 ```

@@ -152,7 +152,7 @@
 ### Backend Tasks
 | # | Task | Type |
 |---|------|------|
-| 1 | Seed knowledge base (+580 chunks → 630 total) | Data seed |
+| 1 | Seed knowledge base (+584 chunks → 634 total) | Data seed |
 | 2 | Deploy `revenue-simulate` edge function | Edge function |
 | 3 | Deploy `risk-analyze` edge function | Edge function |
 | 4 | Deploy `strategic-plan` edge function | Edge function |
@@ -207,7 +207,7 @@
 ### Content
 | # | Task |
 |---|------|
-| 12 | Knowledge base complete (630 chunks) |
+| 12 | Knowledge base complete (634 chunks) |
 | 13 | Scoring rubric refinement |
 | 14 | Report template polish |
 | 15 | Sample startup walkthrough (demo mode) |

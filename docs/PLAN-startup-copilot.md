@@ -482,7 +482,7 @@ User: "How should I price this?"
 
 ---
 
-### Phase H: Strategic Planning Agent (Premium)
+### Phase H: Strategic Planner (Premium)
 
 **Goal**: High-level brain that generates transformation roadmaps.
 
